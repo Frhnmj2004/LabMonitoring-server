@@ -20,14 +20,6 @@ type ResourceData struct {
 	NetworkOut  float64   `json:"network_out"`
 }
 
-type Alert struct {
-	ID          uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:uuid_generate_v4()"`
-	ComputerID  uuid.UUID `json:"computer_id"`
-	Type        string    `json:"type"`
-	Message     string    `json:"message"`
-	Timestamp   time.Time `json:"timestamp"`
-}
-
 func PostResource(c *fiber.Ctx) error {
 	var data ResourceData
 	if err := c.BodyParser(&data); err != nil {
@@ -67,34 +59,42 @@ func PostResource(c *fiber.Ctx) error {
 
 	// Check for alerts
 	if data.CPU > 90 {
-		alert := Alert{
+		alert := &models.Alert{
 			ComputerID: data.ComputerID,
 			Type:      "HIGH_CPU",
 			Message:   "CPU usage exceeds 90%",
 			Timestamp: time.Now(),
+			Resolved:  false,
 		}
-		config.DB.Create(&alert)
-		websocket.BroadcastResourceUpdate(fiber.Map{
-			"type": "alert",
-			"data": alert,
-		})
+		if err := config.DB.Create(alert).Error; err != nil {
+			utils.LogError("Failed to create CPU alert: %v", err)
+		} else {
+			websocket.BroadcastResourceUpdate(fiber.Map{
+				"type": "alert",
+				"data": alert,
+			})
+		}
 	}
 
 	if data.Memory > 90 {
-		alert := Alert{
+		alert := &models.Alert{
 			ComputerID: data.ComputerID,
 			Type:      "HIGH_MEMORY",
 			Message:   "Memory usage exceeds 90%",
 			Timestamp: time.Now(),
+			Resolved:  false,
 		}
-		config.DB.Create(&alert)
-		websocket.BroadcastResourceUpdate(fiber.Map{
-			"type": "alert",
-			"data": alert,
-		})
+		if err := config.DB.Create(alert).Error; err != nil {
+			utils.LogError("Failed to create memory alert: %v", err)
+		} else {
+			websocket.BroadcastResourceUpdate(fiber.Map{
+				"type": "alert",
+				"data": alert,
+			})
+		}
 	}
 
-	// Broadcast update
+	// Broadcast resource update
 	websocket.BroadcastResourceUpdate(fiber.Map{
 		"type": "resource_update",
 		"data": log,
@@ -105,60 +105,48 @@ func PostResource(c *fiber.Ctx) error {
 
 func GetHistory(c *fiber.Ctx) error {
 	var logs []models.ResourceLog
-	computerID := c.Query("computer_id")
-	startTime := c.Query("start_time")
-	endTime := c.Query("end_time")
-
 	query := config.DB.Order("timestamp desc")
 
-	if computerID != "" {
+	// Apply filters
+	if computerID := c.Query("computer_id"); computerID != "" {
 		query = query.Where("computer_id = ?", computerID)
 	}
 
-	if startTime != "" {
+	if startTime := c.Query("start_time"); startTime != "" {
 		query = query.Where("timestamp >= ?", startTime)
 	}
 
-	if endTime != "" {
+	if endTime := c.Query("end_time"); endTime != "" {
 		query = query.Where("timestamp <= ?", endTime)
 	}
 
-	if err := query.Find(&logs).Error; err != nil {
-		utils.LogError("Failed to fetch resource history: %v", err)
+	// Add pagination
+	page := c.QueryInt("page", 1)
+	limit := c.QueryInt("limit", 50)
+	offset := (page - 1) * limit
+
+	var total int64
+	if err := query.Model(&models.ResourceLog{}).Count(&total).Error; err != nil {
+		utils.LogError("Failed to count resource logs: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to fetch resource history",
 		})
 	}
 
-	return c.JSON(logs)
-}
-
-func GetAlerts(c *fiber.Ctx) error {
-	var alerts []Alert
-	computerID := c.Query("computer_id")
-	startTime := c.Query("start_time")
-	endTime := c.Query("end_time")
-
-	query := config.DB.Order("timestamp desc")
-
-	if computerID != "" {
-		query = query.Where("computer_id = ?", computerID)
-	}
-
-	if startTime != "" {
-		query = query.Where("timestamp >= ?", startTime)
-	}
-
-	if endTime != "" {
-		query = query.Where("timestamp <= ?", endTime)
-	}
-
-	if err := query.Find(&alerts).Error; err != nil {
-		utils.LogError("Failed to fetch alerts: %v", err)
+	if err := query.Limit(limit).Offset(offset).Find(&logs).Error; err != nil {
+		utils.LogError("Failed to fetch resource logs: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to fetch alerts",
+			"error": "Failed to fetch resource history",
 		})
 	}
 
-	return c.JSON(alerts)
+	return c.JSON(fiber.Map{
+		"data": logs,
+		"pagination": fiber.Map{
+			"current_page": page,
+			"total_pages": (total + int64(limit) - 1) / int64(limit),
+			"total_items": total,
+			"per_page":    limit,
+		},
+	})
 }
