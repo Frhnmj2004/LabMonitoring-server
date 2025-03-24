@@ -10,15 +10,14 @@ import (
 	"github.com/Frhnmj2004/LabMonitoring-server/utils"
 	"github.com/Frhnmj2004/LabMonitoring-server/websocket"
 	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
 )
 
 type ResourceData struct {
-	ComputerID uuid.UUID `json:"computer_id"`
-	CPU        float64   `json:"cpu"`
-	Memory     float64   `json:"memory"`
-	NetworkIn  float64   `json:"network_in"`
-	NetworkOut float64   `json:"network_out"`
+	ComputerID string  `json:"computer_id"`
+	CPU        float64 `json:"cpu"`
+	Memory     float64 `json:"memory"`
+	NetworkIn  float64 `json:"network_in"`
+	NetworkOut float64 `json:"network_out"`
 }
 
 func PostResource(c *fiber.Ctx) error {
@@ -56,6 +55,7 @@ func PostResource(c *fiber.Ctx) error {
 		NetworkIn:  data.NetworkIn,
 		NetworkOut: data.NetworkOut,
 		Timestamp:  time.Now(),
+		Computer:   computer,
 	}
 
 	// Try to save to database

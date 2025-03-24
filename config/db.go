@@ -41,26 +41,52 @@ func InitDB() {
 	sqlDB.SetMaxOpenConns(10)
 	sqlDB.SetMaxIdleConns(5)
 
-	// Drop existing tables
-	// DB.Migrator().DropTable(
-	// 	&models.InternetUsage{},
-	// 	&models.Alert{},
-	// 	&models.ResourceLog{},
-	// 	&models.Computer{},
-	// 	&models.User{},
-	// )
-
-	// Auto-migrate models
-	err = DB.AutoMigrate(
-		&models.User{},
-		&models.Computer{},
-		&models.ResourceLog{},
-		&models.Alert{},
-		&models.InternetUsage{},
-	)
+	// First create the extension for UUID support
+	err = DB.Exec("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";").Error
 	if err != nil {
-		log.Fatal("Failed to migrate database: ", err)
+		log.Fatal("Failed to create extension: ", err)
 	}
 
+	// Drop existing tables to start fresh
+	err = DB.Exec("DROP TABLE IF EXISTS internet_usages, alerts, resource_logs, computers, users CASCADE;").Error
+	if err != nil {
+		log.Fatal("Failed to drop tables: ", err)
+	}
+
+	// Create tables with proper references
+	createSchema()
+
 	log.Println("Database connection established successfully")
+}
+
+func createSchema() {
+	// Create User model
+	err := DB.AutoMigrate(&models.User{})
+	if err != nil {
+		log.Fatal("Failed to create User table: ", err)
+	}
+
+	// Create Computer model
+	err = DB.AutoMigrate(&models.Computer{})
+	if err != nil {
+		log.Fatal("Failed to create Computer table: ", err)
+	}
+
+	// Create ResourceLog model
+	err = DB.AutoMigrate(&models.ResourceLog{})
+	if err != nil {
+		log.Fatal("Failed to create ResourceLog table: ", err)
+	}
+
+	// Create Alert model
+	err = DB.AutoMigrate(&models.Alert{})
+	if err != nil {
+		log.Fatal("Failed to create Alert table: ", err)
+	}
+
+	// Create InternetUsage model
+	err = DB.AutoMigrate(&models.InternetUsage{})
+	if err != nil {
+		log.Fatal("Failed to create InternetUsage table: ", err)
+	}
 }

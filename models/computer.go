@@ -9,7 +9,7 @@ import (
 
 type Computer struct {
 	ID         uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:uuid_generate_v4()"`
-	ComputerID uuid.UUID `json:"computer_id" gorm:"uniqueIndex;not null;column:computer_id"`
+	ComputerID string    `json:"computer_id" gorm:"uniqueIndex;not null;column:computer_id"`
 	College    string    `json:"college" gorm:"not null"`
 	LabName    string    `json:"lab_name" gorm:"not null"`
 	LastSeen   time.Time `json:"last_seen"`
@@ -21,9 +21,6 @@ type Computer struct {
 func (c *Computer) BeforeCreate(tx *gorm.DB) error {
 	if c.ID == uuid.Nil {
 		c.ID = uuid.New()
-	}
-	if c.ComputerID == uuid.Nil {
-		c.ComputerID = uuid.New()
 	}
 	return nil
 }
