@@ -9,7 +9,7 @@ import (
 
 type Alert struct {
 	ID         uuid.UUID `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
-	ComputerID uuid.UUID `gorm:"type:uuid;not null" json:"computer_id"`
+	ComputerID uuid.UUID `gorm:"not null" json:"computer_id"`
 	Type       string    `gorm:"type:varchar(20);not null" json:"type"`
 	Message    string    `gorm:"type:text;not null" json:"message"`
 	Timestamp  time.Time `gorm:"not null;index" json:"timestamp"`

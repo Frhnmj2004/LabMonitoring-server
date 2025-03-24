@@ -41,12 +41,22 @@ func InitDB() {
 	sqlDB.SetMaxOpenConns(10)
 	sqlDB.SetMaxIdleConns(5)
 
+	// Drop existing tables
+	// DB.Migrator().DropTable(
+	// 	&models.InternetUsage{},
+	// 	&models.Alert{},
+	// 	&models.ResourceLog{},
+	// 	&models.Computer{},
+	// 	&models.User{},
+	// )
+
 	// Auto-migrate models
 	err = DB.AutoMigrate(
 		&models.User{},
 		&models.Computer{},
 		&models.ResourceLog{},
 		&models.Alert{},
+		&models.InternetUsage{},
 	)
 	if err != nil {
 		log.Fatal("Failed to migrate database: ", err)
